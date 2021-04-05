@@ -11,13 +11,13 @@ class RadarStackedHourglass(nn.Module):
                                 kernel_size=(9, 5, 5), stride=(1, 1, 1), padding=(4, 2, 2))
         self.conv1b = nn.Conv3d(in_channels=32, out_channels=64, dilation=(2,2,2),
                                 kernel_size=(5, 3, 3), stride=(1, 1, 1), padding=(4, 2, 2))
-        self.conv1c = nn.Conv3d(in_channels=64, out_channels=176, dilation=(2,2,2),
+        self.conv1c = nn.Conv3d(in_channels=64, out_channels=160, dilation=(2,2,2),
                                 kernel_size=(5, 3, 3), stride=(1, 1, 1), padding=(4, 2, 2))
 
         self.hourglass = []
         for i in range(stacked_num):
-            self.hourglass.append(nn.ModuleList([RODEncode(), RODDecode(),
-                                                 nn.Conv3d(in_channels=176, out_channels=n_class, 
+            self.hourglass.append(nn.ModuleList([DCSN(), RODDecode(),
+                                                 nn.Conv3d(in_channels=160, out_channels=n_class, 
                                                            kernel_size=(9, 5, 5), stride=(1, 1, 1),
                                                            padding=(4, 2, 2)),
                                                  nn.Conv3d(in_channels=n_class, out_channels=176,
@@ -27,7 +27,7 @@ class RadarStackedHourglass(nn.Module):
         self.relu = Mish()
         self.bn1a = nn.BatchNorm3d(num_features=32)
         self.bn1b = nn.BatchNorm3d(num_features=64)
-        self.bn1c = nn.BatchNorm3d(num_features=176)
+        self.bn1c = nn.BatchNorm3d(num_features=160)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -59,69 +59,93 @@ class DCSB(nn.Module):
         paddingX = kernal_size[0] // 2+1
         paddingY = kernal_size[1] // 2+1
 
-        self.branch1 = nn.Conv3d(in_channels=in_channel, out_channels=32, dilation=(1,2,2),
+        self.branch1 = nn.Conv3d(in_channels=in_channel, out_channels=40, dilation=(1,2,2),
                                  kernel_size=(5, kernal_size[0], kernal_size[1]), stride=stride,
                                  padding=(2, paddingX, paddingY))
+        
         self.branch2a = nn.Conv3d(in_channels=in_channel, out_channels=48,dilation=(1,2,2),
                                   kernel_size=(5, kernal_size[0], kernal_size[1]), stride=(1, 1, 1),
                                   padding=(2, paddingX, paddingY))
-        self.branch2b = nn.Conv3d(in_channels=48, out_channels=48, dilation=(2,2,2),
+        self.branch2b = nn.Conv3d(in_channels=48, out_channels=40, dilation=(2,2,2),
                                   kernel_size=(5, kernal_size[0], kernal_size[1]), stride=stride,
                                   padding=(4, paddingX, paddingY))
+        self.sequeeze2 = nn.Conv3d(in_channels=40*2, out_channels=40,
+                                  kernel_size=(1, 1,1), stride=(1,1,1),
+                                  padding=(0,0,0))
+        
         self.branch3a = nn.Conv3d(in_channels=in_channel, out_channels=48, dilation=(1,2,2),
                                   kernel_size=(5, kernal_size[0], kernal_size[1]), stride=(1, 1, 1),
                                   padding=(2, paddingX, paddingY))
-        self.branch3b = nn.Conv3d(in_channels=48, out_channels=48, dilation=(3,2,2),
+        self.branch3b = nn.Conv3d(in_channels=48, out_channels=40, dilation=(3,2,2),
                                   kernel_size=(5, kernal_size[0], kernal_size[1]), stride=stride,
                                   padding=(6, paddingX, paddingY))
+        self.sequeeze3 = nn.Conv3d(in_channels=40*3, out_channels=40,
+                                  kernel_size=(1, 1,1), stride=(1,1,1),
+                                  padding=(0,0,0))
         
         self.branch4a = nn.Conv3d(in_channels=in_channel, out_channels=48, dilation=(1,2,2),
                                   kernel_size=(5, kernal_size[0], kernal_size[1]), stride=(1, 1, 1),
                                   padding=(2, paddingX, paddingY))
-        self.branch4b = nn.Conv3d(in_channels=48, out_channels=48, dilation=(3,2,2),
+        self.branch4b = nn.Conv3d(in_channels=48, out_channels=40, dilation=(3,2,2),
                                   kernel_size=(3, kernal_size[0], kernal_size[1]), stride=stride,
                                   padding=(3, paddingX, paddingY))
+        self.sequeeze4 = nn.Conv3d(in_channels=40*4, out_channels=40,
+                                  kernel_size=(1, 1,1), stride=(1,1,1),
+                                  padding=(0,0,0))
         
         
 
     def forward(self, x):
         branch1 = self.branch1(x)
+#         print(x.shape)
+#         print(branch1.shape)
 
         branch2 = self.branch2a(x)
+#         print(branch2.shape)
         branch2 = self.branch2b(branch2)
+#         print(branch2.shape)
+        branch2 = self.sequeeze2(torch.cat((branch1,branch2),1))
+#         print(branch2.shape)
 
         branch3 = self.branch3a(x)
+#         print(branch3.shape)
         branch3 = self.branch3b(branch3)
+#         print(branch3.shape)
+        branch3 = self.sequeeze3(torch.cat((branch1,branch2,branch3),1))
+#         print(branch3.shape)
         
         branch4 = self.branch3a(x)
+#         print(branch4.shape)
         branch4 = self.branch3b(branch4)
+#         print(branch4.shape)
+        branch4 = self.sequeeze4(torch.cat((branch1,branch2,branch3, branch4),1))
+#         print(branch4.shape)
+        branch4 = branch4 + branch1
 
         return torch.cat((branch1, branch2, branch3, branch4), 1)
 
 
-class RODEncode(nn.Module):
+class DCSN(nn.Module):
 
     def __init__(self):
-        super(RODEncode, self).__init__()
-        self.inception1 = DCSB(kernal_size=(3, 3), in_channel=176, stride=(1, 2, 2))
-        self.inception2 = DCSB(kernal_size=(3, 3), in_channel=176, stride=(1, 2, 2))
-        self.inception3 = DCSB(kernal_size=(3, 3), in_channel=176, stride=(1, 2, 2))
+        super(DCSN, self).__init__()
+        self.inception1 = DCSB(kernal_size=(3, 3), in_channel=160, stride=(1, 2, 2))
+        self.inception2 = DCSB(kernal_size=(3, 3), in_channel=160, stride=(1, 2, 2))
+        self.inception3 = DCSB(kernal_size=(3, 3), in_channel=160, stride=(1, 2, 2))
 
-        self.skip_inception1 = DCSB(kernal_size=(3, 3), in_channel=176, stride=(1, 2, 2))
-        self.skip_inception2 = DCSB(kernal_size=(3, 3), in_channel=176, stride=(1, 2, 2))
-        self.skip_inception3 = DCSB(kernal_size=(3, 3), in_channel=176, stride=(1, 2, 2))
+        self.skip_inception1 = DCSB(kernal_size=(3, 3), in_channel=160, stride=(1, 2, 2))
+        self.skip_inception2 = DCSB(kernal_size=(3, 3), in_channel=160, stride=(1, 2, 2))
+        self.skip_inception3 = DCSB(kernal_size=(3, 3), in_channel=160, stride=(1, 2, 2))
+       
+    
+        self.bn1 = nn.BatchNorm3d(num_features=160)
+        self.bn2 = nn.BatchNorm3d(num_features=160)
+        self.bn3 = nn.BatchNorm3d(num_features=160)
 
-        self.bn1 = nn.BatchNorm3d(num_features=176)
-        self.bn2 = nn.BatchNorm3d(num_features=176)
-        self.bn3 = nn.BatchNorm3d(num_features=176)
-
-        self.skip_bn1 = nn.BatchNorm3d(num_features=176)
-        self.skip_bn2 = nn.BatchNorm3d(num_features=176)
-        self.skip_bn3 = nn.BatchNorm3d(num_features=176)
-        # self.bn4a = nn.BatchNorm3d(num_features=64)
-        # self.bn4b = nn.BatchNorm3d(num_features=64)
-        # self.bn5a = nn.BatchNorm3d(num_features=64)
-        # self.bn5b = nn.BatchNorm3d(num_features=64)
+        self.skip_bn1 = nn.BatchNorm3d(num_features=160)
+        self.skip_bn2 = nn.BatchNorm3d(num_features=160)
+        self.skip_bn3 = nn.BatchNorm3d(num_features=160)
+        
         self.relu = Mish()
 
     def forward(self, x):
@@ -141,21 +165,22 @@ class RODDecode(nn.Module):
 
     def __init__(self):
         super(RODDecode, self).__init__()
-        self.convt1 = nn.ConvTranspose3d(in_channels=176, out_channels=176,
+        self.convt1 = nn.ConvTranspose3d(in_channels=160, out_channels=160,
                                          kernel_size=(3, 6, 6), stride=(1, 2, 2), padding=(1, 2, 2))
-        self.convt2 = nn.ConvTranspose3d(in_channels=176, out_channels=176,
+        self.convt2 = nn.ConvTranspose3d(in_channels=160, out_channels=160,
                                          kernel_size=(3, 6, 6), stride=(1, 2, 2), padding=(1, 2, 2))
-        self.convt3 = nn.ConvTranspose3d(in_channels=176, out_channels=176,
+        self.convt3 = nn.ConvTranspose3d(in_channels=160, out_channels=160,
                                          kernel_size=(3, 6, 6), stride=(1, 2, 2), padding=(1, 2, 2))
-        self.conv1 = nn.Conv3d(in_channels=176, out_channels=176, dilation=(2,1,1),
+        self.conv1 = nn.Conv3d(in_channels=160, out_channels=160, dilation=(2,1,1),
                                kernel_size=(5, 5, 5), stride=(1, 1, 1), padding=(4, 2, 2))
-        self.conv2 = nn.Conv3d(in_channels=176, out_channels=176, dilation=(2,1,1),
+        self.conv2 = nn.Conv3d(in_channels=160, out_channels=160, dilation=(2,1,1),
                                kernel_size=(5, 5, 5), stride=(1, 1, 1), padding=(4, 2, 2))
-        self.conv3 = nn.Conv3d(in_channels=176, out_channels=176, dilation=(2,1,1),
+        self.conv3 = nn.Conv3d(in_channels=160, out_channels=160, dilation=(2,1,1),
                                kernel_size=(5, 5, 5), stride=(1, 1, 1), padding=(4, 2, 2))
         self.prelu = Mish()
         self.sigmoid = nn.Sigmoid()
-
+        # self.upsample = nn.Upsample(size=(rodnet_configs['win_size'], radar_configs['ramap_rsize'],
+        #                                   radar_configs['ramap_asize']), mode='nearest')
 
     def forward(self, x, x1, x2, x3):
         x = self.prelu(self.convt1(x + x3))  # (B, 256, W/4, 16, 16) -> (B, 128, W/2, 32, 32)

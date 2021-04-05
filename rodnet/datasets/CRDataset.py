@@ -80,7 +80,7 @@ class CRDataset(data.Dataset):
             self.n_data += n_data_in_seq
             for data_id in range(n_data_in_seq):
                 self.index_mapping.append([seq_id, data_id * self.stride])
-            if data_details['anno'] is not None:
+            if split!='test' and data_details['anno'] is not None:
                 self.obj_infos.append(data_details['anno']['metadata'])
                 self.confmaps.append(data_details['anno']['confmaps'])
 
@@ -90,7 +90,7 @@ class CRDataset(data.Dataset):
     
     def logTransform(self, x):
 #         x = x-np.min(x)+1
-#         return np.log2(x)
+#         x = np.log2(x)
         return x
         
     def __getitem__(self, index):

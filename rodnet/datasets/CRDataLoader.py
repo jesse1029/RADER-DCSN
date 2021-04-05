@@ -6,7 +6,7 @@ from multiprocessing import Array, Process
 
 
 class CRDataLoader():
-    def __init__(self, dataset, shuffle=False, num_parallel_batch=1, noise_channel=False):
+    def __init__(self, dataset, shuffle=False, num_parallel_batch=2, noise_channel=False):
         # parameters settings
         self.dataset = dataset
         self.config_dict = self.dataset.config_dict

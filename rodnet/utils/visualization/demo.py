@@ -44,17 +44,17 @@ def visualize_train_img(fig_name, img_path, input_radar, output_confmap, confmap
     plt.close(fig)
 
 
-def visualize_test_img(fig_name,  input_radar, confmap_pred, confmap_gt, res_final, dataset, viz=False,
+def visualize_test_img(fig_name, img_path, input_radar, confmap_pred, confmap_gt, res_final, dataset, viz=False,
                        sybl=False):
     max_dets, _ = res_final.shape
     classes = dataset.object_cfg.classes
 
-    #img_data = mpimg.imread(img_path)
-    #if img_data.shape[0] > 864:
-        #img_data = img_data[:img_data.shape[0] // 5 * 4, :, :]
+    img_data = mpimg.imread(img_path)
+    if img_data.shape[0] > 864:
+        img_data = img_data[:img_data.shape[0] // 5 * 4, :, :]
 
     fig.add_subplot(2, 2, 1)
-    #plt.imshow(img_data.astype(np.uint8))
+    plt.imshow(img_data.astype(np.uint8))
     plt.axis('off')
     plt.title("Image")
 
@@ -99,18 +99,18 @@ def visualize_test_img(fig_name,  input_radar, confmap_pred, confmap_gt, res_fin
     plt.clf()
 
 
-def visualize_test_img_wo_gt(fig_name,  input_radar, confmap_pred, res_final, dataset, viz=False,
+def visualize_test_img_wo_gt(fig_name, img_path, input_radar, confmap_pred, res_final, dataset, viz=False,
                              sybl=False):
     max_dets, _ = res_final.shape
     classes = dataset.object_cfg.classes
 
     fig.set_size_inches(12, 4)
-    #img_data = mpimg.imread(img_path)
-    #if img_data.shape[0] > 864:
-        #img_data = img_data[:img_data.shape[0] // 5 * 4, :, :]
+    img_data = mpimg.imread(img_path)
+    if img_data.shape[0] > 864:
+        img_data = img_data[:img_data.shape[0] // 5 * 4, :, :]
 
     fig.add_subplot(1, 3, 1)
-    #plt.imshow(img_data.astype(np.uint8))
+    plt.imshow(img_data.astype(np.uint8))
     plt.axis('off')
     plt.title("RGB Image")
 

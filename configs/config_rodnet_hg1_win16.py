@@ -1,8 +1,8 @@
 dataset_cfg = dict(
     dataset_name='ROD2021',
-    base_root="/home/jesse1029/home/jess/ROD2021/RODNet/raw/",
-    data_root="/home/jesse1029/home/jess/ROD2021/RODNet/raw/",
-    anno_root="/home/jesse1029/home/jess/ROD2021/RODNet/raw/TRAIN_RAD_H_ANNO",
+    base_root="/nvme2/ROD2021/raw/",
+    data_root="/nvme2/ROD2021/raw/",
+    anno_root="/nvme2/ROD2021/raw/TRAIN_RAD_H_ANNO",
     anno_ext='.txt',
     train=dict(
         subdir='train',
@@ -24,7 +24,7 @@ dataset_cfg = dict(
 
 model_cfg = dict(
     type='HGwI',
-    name='ours-s3',
+    name='ours-s1',
     max_dets=20,
     peak_thres=0.4,
     ols_thres=0.3,
@@ -57,8 +57,8 @@ confmap_cfg = dict(
 
 train_cfg = dict(
     n_epoch=60,
-    batch_size=24,
-    lr=0.00001,
+    batch_size=52,
+    lr=0.0001,
     lr_step=5,  # lr will decrease 10 times after lr_step epoches
     win_size=16,
     train_step=1,
